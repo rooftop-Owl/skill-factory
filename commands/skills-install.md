@@ -8,7 +8,6 @@ Import skills from a GitHub repository into `.claude/skills/`.
 
 ```
 /skills-install <owner/repo>
-/skills-install <owner/repo> --skill <name>
 ```
 
 ## Implementation
