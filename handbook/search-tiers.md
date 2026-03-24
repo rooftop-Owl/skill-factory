@@ -82,7 +82,7 @@ npx --yes agent-skills-cli install @namespace/skill-name
 | **Code search** | `gh search code "SKILL.md" "$Q" --limit 5` | Medium — finds actual skill files |
 | **grep.app** | Search `SKILL.md` files for `$Q` across all public repos | High — pattern-level matching |
 
-**Why tier 3**: GitHub has everything but no curation. Filter results by star count (≥10), recency (≤6 months), and license (MIT/Apache-2.0/BSD).
+**Why tier 3**: GitHub has everything but no curation. Filter results by star count (≥10), recency (≤6 months), and license (MIT/Apache-2.0/MPL-2.0/BSD).
 
 **Install from T3**: Clone → copy skill directory to `.claude/skills/`.
 
