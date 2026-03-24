@@ -43,7 +43,7 @@ Step-by-step instructions the agent follows.
 
 | Field | Purpose | Example |
 |-------|---------|---------|
-| `license` | SPDX identifier | `MIT` |
+| `license` | SPDX identifier | `MPL-2.0` |
 | `metadata.triggers` | Pipe-delimited trigger phrases | `"react hooks \| useState \| components"` |
 | `metadata.domains` | Pipe-delimited domain tags | `"frontend \| react"` |
 | `metadata.version` | Semver string | `"1.0.0"` |

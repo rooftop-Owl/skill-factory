@@ -30,7 +30,7 @@ my-skills-repo/
 │   │   └── examples/        # Optional: usage examples
 │   └── skill-two/
 │       └── SKILL.md
-├── LICENSE                   # MIT recommended
+├── LICENSE                   # MPL-2.0, MIT, or Apache-2.0
 └── README.md
 ```
 
@@ -64,7 +64,7 @@ skills.sh tracks anonymous install counts. Skills with more installs rank higher
 - Write clear `description` fields with trigger phrases — this is what users see in search results
 - Include a README with install commands and a skills table
 - Add `references/` for complex skills — keeps the main SKILL.md concise
-- Use MIT license for maximum compatibility
+- Use an open-source license (MIT, Apache-2.0, MPL-2.0, BSD) for maximum compatibility
 - Keep skills focused — one capability per skill, not kitchen sinks
 
 ## Verify Your Listing

@@ -65,7 +65,7 @@ gh search repos "topic:claude-skills topic:agent-skills <domain>" --sort stars -
 ```
 
 Before installing from unknown repos:
-1. **Check license**: Must be MIT, Apache-2.0, BSD-2/3, CC-BY-4.0, or CC-BY-SA-4.0
+1. **Check license**: Must be MIT, Apache-2.0, MPL-2.0, BSD-2/3, CC-BY-4.0, or CC-BY-SA-4.0
 2. **Check quality**: Read the SKILL.md — does it have clear procedures or just vague advice?
 3. **Check freshness**: Last commit within 6 months?
 
@@ -100,6 +100,7 @@ skill_content = read(".claude/skills/<new-skill>/SKILL.md")
 Only auto-install skills with these licenses:
 - MIT
 - Apache-2.0
+- MPL-2.0
 - BSD-2-Clause / BSD-3-Clause
 - CC-BY-4.0 / CC-BY-SA-4.0
 
