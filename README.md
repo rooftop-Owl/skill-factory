@@ -1,98 +1,201 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/skills-3-blue?style=flat-square" alt="Skills">
+  <img src="https://img.shields.io/badge/commands-8-green?style=flat-square" alt="Commands">
+  <img src="https://img.shields.io/badge/platforms-7+-orange?style=flat-square" alt="Platforms">
+  <img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/version-0.1.0-purple?style=flat-square" alt="Version">
+</p>
+
 # skill-factory
 
-**Portable skill lifecycle manager for AI coding agents.**
+**The portable skill lifecycle manager for AI coding agents.**
 
-Import, search, validate, and remove agent skills across the skills.sh ecosystem. Works with Claude Code, OpenCode, Cursor, Codex, Gemini CLI, and any SKILL.md-compatible platform.
+Search 300K+ skills across 6 registries. Import from GitHub in one command. Validate against the open spec. Remove cleanly with provenance tracking. Works with Claude Code, Codex, Cursor, Gemini CLI, and every platform that reads `SKILL.md`.
+
+> No runtime. No server. No lock-in. Your agent IS the engine.
+
+---
+
+## Why skill-factory?
+
+The agent skills ecosystem is exploding — 300K+ skills across a dozen registries, marketplaces, and awesome-lists. But finding the right skill, installing it cleanly, and maintaining it across projects is still manual and fragmented.
+
+skill-factory solves this with **8 slash commands** and **3 procedural skills** that turn your agent into a self-service skill manager:
+
+- **Search** across Skyll (89K+), LobeHub (100K+), skills.sh, openskills, and GitHub in a tiered cascade
+- **Import** from any GitHub repo with `npx` or `git clone` fallback + provenance tracking
+- **Validate** against the [agentskills.io](https://agentskills.io) open specification
+- **Audit** quality — trigger descriptions, frontmatter, progressive disclosure
+- **Remove** cleanly with manifest archival (never lose track of what was installed)
+
+---
 
 ## Quick Start
 
-### As a Claude Code Plugin (full experience)
+### As a Claude Code Plugin
 
 ```bash
 /plugin marketplace add rooftop-Owl/skill-factory
 ```
 
-Gets you 8 commands + 3 skills.
+Installs all 8 commands + 3 skills with auto-discovery.
 
-### Via skills.sh (skills only)
+### Via skills.sh
 
 ```bash
 npx skills add rooftop-Owl/skill-factory
 ```
 
-Gets you the 3 skills for manual use.
+Installs the 3 skills for any SKILL.md-compatible agent.
+
+### Manual
+
+```bash
+git clone https://github.com/rooftop-Owl/skill-factory.git
+cp -r skill-factory/skills/* ~/.claude/skills/
+```
+
+---
 
 ## Commands
 
-| Command | What It Does |
-|---------|-------------|
-| `/skills-search <query>` | Search skills.sh + Skyll marketplace by keyword |
-| `/skills-install <owner/repo>` | Import skills from GitHub — npx or git clone fallback |
-| `/skills-remove <name>` | Remove an imported skill with manifest archival |
-| `/skills-list` | Show imported skills with source and status |
-| `/skills-create <name>` | Scaffold a new SKILL.md with valid frontmatter |
-| `/skills-validate <name>` | Validate against the agentskills.io spec |
-| `/skills-audit <name>` | Quality audit — triggers, description, size |
-| `/skills-health` | Health report across all installed skills |
+| Command | Description |
+|---|---|
+| `/skills-search <query>` | Tiered search across 6+ registries — Skyll API, LobeHub, skills.sh, openskills, GitHub topics, grep.app |
+| `/skills-install <owner/repo>` | Import skills from GitHub with npx or git clone fallback. Tracks provenance in manifest |
+| `/skills-remove <name>` | Remove an imported skill with manifest archival. Never lose history |
+| `/skills-list` | Show all imported skills — source, status, install date |
+| `/skills-create <name>` | Scaffold a new `SKILL.md` with valid frontmatter and directory structure |
+| `/skills-validate <name>` | Validate against the agentskills.io spec — required fields, size limits, format |
+| `/skills-audit <name>` | Quality audit — trigger description quality, progressive disclosure, body size |
+| `/skills-health` | Health report across all installed skills — coverage, staleness, spec compliance |
+
+---
 
 ## Skills
 
-| Skill | Triggers | What It Does |
-|-------|----------|-------------|
-| [skill-management](./skills/skill-management/SKILL.md) | "import skill", "remove skill", "list imported", "validate skill" | Core lifecycle procedures — import, remove, list, validate with manifest tracking |
-| [skill-development](./skills/skill-development/SKILL.md) | "create skill", "write SKILL.md", "skill frontmatter", "publish skill" | Authoring guide — spec format, description best practices, testing, publishing |
-| [external-skill-acquisition](./skills/external-skill-acquisition/SKILL.md) | "no skill match", "domain knowledge", "find skill", "acquire skill" | 3-tier acquisition workflow — auto-install, manual review, or synthesize from docs |
+### skill-management
+
+> *"import skill", "remove skill", "list imported", "validate skill"*
+
+Core lifecycle procedures for managing external skills. Handles the full import → use → maintain → remove cycle with manifest-based provenance tracking.
+
+### skill-development
+
+> *"create skill", "write SKILL.md", "skill frontmatter", "publish skill"*
+
+Authoring guide for writing production-quality skills. Covers the SKILL.md spec, description best practices (third-person, trigger phrases), progressive disclosure (body < 2K words, details in `references/`), and publishing to skills.sh.
+
+### external-skill-acquisition
+
+> *"no skill match", "domain knowledge", "find skill", "acquire skill"*
+
+When you need a skill that doesn't exist yet. Three-tier acquisition: auto-install from trusted sources (MIT/Apache-2.0/MPL-2.0), manual review from spec sources, or synthesize from documentation.
+
+---
+
+## Search Tiers
+
+skill-factory searches registries in a cascade — fast and high-signal sources first, broader and noisier sources as fallback.
+
+| Tier | Source | Scale | Speed |
+|---|---|---|---|
+| **T0** | Local inventory | Your installed skills | Instant |
+| **T1** | Skyll API + LobeHub | 190K+ | <2s |
+| **T2** | skills.sh, openskills, agent-skills-cli | 175K+ | 2-5s |
+| **T3** | GitHub topics + grep.app | All public repos | 3-8s |
+| **T4** | Curated awesome-lists | 2,000+ vetted | Reference |
+| **T5** | Anthropic official plugins | Curated | Separate path |
+
+Stops at the first tier with 3+ relevant results. Full cascade documented in [`handbook/search-tiers.md`](./handbook/search-tiers.md).
+
+---
 
 ## Platform Compatibility
 
-These skills and commands use standard tools (`npx`, `git`, `curl`) and work with any agent platform that reads SKILL.md files:
+skill-factory uses standard tools (`npx`, `git`, `curl`) and produces standard `SKILL.md` files. It works anywhere the open agent skills format is supported:
 
-| Platform | Supported | Install |
-|----------|-----------|---------|
-| Claude Code | ✅ | `/plugin marketplace add` |
-| OpenCode | ✅ | `npx skills add` |
-| Cursor | ✅ | `npx skills add` |
-| Codex | ✅ | `npx skills add` |
-| Gemini CLI | ✅ | `npx skills add` |
-| Windsurf | ✅ | `npx skills add` |
-| Roo Code | ✅ | `npx skills add` |
+| Platform | Install Method |
+|---|---|
+| **Claude Code** | `/plugin marketplace add rooftop-Owl/skill-factory` |
+| **Codex** | `npx skills add rooftop-Owl/skill-factory` |
+| **Cursor** | `npx skills add rooftop-Owl/skill-factory` |
+| **Gemini CLI** | `npx skills add rooftop-Owl/skill-factory` |
+| **OpenCode** | `npx skills add rooftop-Owl/skill-factory` |
+| **Windsurf** | `npx skills add rooftop-Owl/skill-factory` |
+| **Roo Code** | `npx skills add rooftop-Owl/skill-factory` |
+| **Any SKILL.md agent** | `git clone` + copy to skills directory |
 
-## Structure
+---
+
+## Project Structure
 
 ```
 skill-factory/
 ├── .claude-plugin/
-│   └── plugin.json               # Plugin identity
+│   └── plugin.json                  # Claude Code plugin manifest
 ├── skills/
-│   ├── skill-management/
-│   │   └── SKILL.md              # Import, remove, list, validate
-│   ├── skill-development/
-│   │   └── SKILL.md              # Author and publish skills
+│   ├── skill-management/SKILL.md    # Import, remove, list, validate
+│   ├── skill-development/SKILL.md   # Author and publish skills
 │   └── external-skill-acquisition/
-│       └── SKILL.md              # 3-tier acquisition workflow
+│       └── SKILL.md                 # 3-tier acquisition workflow
 ├── commands/
-│   ├── skills-search.md          # Marketplace search
-│   ├── skills-install.md         # Import from repos
-│   ├── skills-remove.md          # Graceful removal
-│   ├── skills-list.md            # List imported
-│   ├── skills-create.md          # Scaffold new skill
-│   ├── skills-validate.md        # Spec validation
-│   ├── skills-audit.md           # Quality audit
-│   └── skills-health.md          # Health report
+│   ├── skills-search.md             # Tiered marketplace search
+│   ├── skills-install.md            # GitHub import with fallback
+│   ├── skills-remove.md             # Clean removal + archival
+│   ├── skills-list.md               # Inventory view
+│   ├── skills-create.md             # Scaffold new skill
+│   ├── skills-validate.md           # Spec validation
+│   ├── skills-audit.md              # Quality audit
+│   └── skills-health.md             # Health report
 ├── handbook/
-│   ├── publishing-skills.md      # How to publish to skills.sh
-│   └── agentskills-io-spec.md    # Full spec reference
-├── LICENSE                        # MIT
+│   ├── search-tiers.md              # Full search cascade reference
+│   ├── publishing-skills.md         # How to publish to skills.sh
+│   └── agentskills-io-spec.md       # The open SKILL.md spec
+├── CLAUDE.md                        # Plugin context for agents
+├── LICENSE                          # MPL-2.0
 └── README.md
 ```
 
+---
+
 ## Handbook
 
-Human-readable guides for deeper understanding:
+Deep-dive references for skill authors and power users:
 
-- [Publishing Skills](./handbook/publishing-skills.md) — How to publish your skills to skills.sh
-- [agentskills.io Spec](./handbook/agentskills-io-spec.md) — The full SKILL.md specification reference
+| Guide | Description |
+|---|---|
+| [Search Tiers](./handbook/search-tiers.md) | Full probe cascade — 6 tiers, install commands, source maintenance notes |
+| [Publishing Skills](./handbook/publishing-skills.md) | Step-by-step guide to publishing your skills on skills.sh |
+| [agentskills.io Spec](./handbook/agentskills-io-spec.md) | The open SKILL.md specification — frontmatter fields, format rules, validation criteria |
+
+---
+
+## Design Decisions
+
+**Pure skills + commands, no Python tools.** The agent IS the engine. skill-factory provides the knowledge (skills) and the entry points (commands) — the agent's native tool-calling abilities handle execution. This keeps the plugin portable across all platforms without runtime dependencies.
+
+**File-level copyleft (MPL-2.0).** Modified files must stay open-source. Patent grant protects contributors. But you can freely combine skill-factory with proprietary projects in separate files. See [LICENSE](./LICENSE).
+
+**Tiered search over single-source.** No single registry has everything. The cascade searches the fastest, highest-signal sources first and stops early when results are sufficient. This balances speed with coverage.
+
+---
+
+## Contributing
+
+skill-factory is open to contributions under MPL-2.0:
+
+1. **New registry backends** — Add a search source to the tiered cascade
+2. **Skill quality improvements** — Better trigger descriptions, tighter procedures
+3. **Platform adapters** — Test and document installation on new agent platforms
+4. **Handbook content** — Guides for specific workflows or domains
+
+Open an issue or PR at [rooftop-Owl/skill-factory](https://github.com/rooftop-Owl/skill-factory).
+
+---
 
 ## License
 
-MIT
+[Mozilla Public License 2.0](./LICENSE) — file-level copyleft with patent grant.
+
+You can use, modify, and distribute freely. Modified files must remain open-source. New files you add can use any license. Patent claims on contributed code are automatically granted to all users.
