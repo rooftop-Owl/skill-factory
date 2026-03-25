@@ -1,0 +1,25 @@
+{
+  "name": "skill-factory",
+  "owner": {
+    "name": "rooftop-Owl"
+  },
+  "metadata": {
+    "description": "Portable skill lifecycle manager for AI coding agents",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "skill-factory",
+      "source": ".",
+      "description": "Search 300K+ skills, import from GitHub, validate against agentskills.io spec, remove cleanly with provenance tracking. 8 commands + 3 skills.",
+      "version": "0.1.0",
+      "author": {
+        "name": "rooftop-Owl"
+      },
+      "license": "MPL-2.0",
+      "keywords": ["skills", "agent-skills", "skill-management", "skills-sh", "claude-code"],
+      "category": "developer-tools",
+      "tags": ["skill-lifecycle", "skill-search", "skill-validation"]
+    }
+  ]
+}

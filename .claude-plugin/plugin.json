@@ -17,10 +17,7 @@
     "claude-code",
     "plugin"
   ],
-  "commands": {
-    "path": "commands"
-  },
-  "skills": {
-    "path": "skills"
-  }
+  "commands": "./commands",
+  "category": "developer-tools",
+  "tags": ["skill-management", "agent-skills", "skills-sh", "skill-lifecycle"]
 }
