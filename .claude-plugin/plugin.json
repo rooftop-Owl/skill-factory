@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "description": "Portable skill lifecycle manager for AI coding agents — import, search, validate, remove. Works with skills.sh, Claude Code plugins, and any SKILL.md-compatible platform.",
   "author": {
-    "name": "rooftop-Owl",
-    "url": "https://github.com/rooftop-Owl"
+    "name": "rooftop-Owl"
   },
   "keywords": [
     "skills",
