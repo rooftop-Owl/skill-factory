@@ -1,14 +1,11 @@
 {
   "name": "skill-factory",
   "version": "0.1.0",
-  "description": "Portable skill lifecycle manager for AI coding agents \u2014 import, search, validate, remove. Works with skills.sh, Claude Code plugins, and any SKILL.md-compatible platform.",
+  "description": "Portable skill lifecycle manager for AI coding agents — import, search, validate, remove. Works with skills.sh, Claude Code plugins, and any SKILL.md-compatible platform.",
   "author": {
     "name": "rooftop-Owl",
     "url": "https://github.com/rooftop-Owl"
   },
-  "homepage": "https://github.com/rooftop-Owl/skill-factory",
-  "repository": "https://github.com/rooftop-Owl/skill-factory",
-  "license": "MPL-2.0",
   "keywords": [
     "skills",
     "agent-skills",
@@ -16,8 +13,5 @@
     "skills-sh",
     "claude-code",
     "plugin"
-  ],
-  "commands": "./commands",
-  "category": "developer-tools",
-  "tags": ["skill-management", "agent-skills", "skills-sh", "skill-lifecycle"]
+  ]
 }
