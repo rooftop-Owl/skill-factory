@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "skill-factory",
-      "source": ".",
+      "source": "./",
       "description": "Search 300K+ skills, import from GitHub, validate against agentskills.io spec, remove cleanly with provenance tracking. 8 commands + 3 skills.",
       "version": "0.1.0",
       "author": {
