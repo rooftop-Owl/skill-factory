@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/skills-3-blue?style=flat-square" alt="Skills">
-  <img src="https://img.shields.io/badge/commands-8-green?style=flat-square" alt="Commands">
+  <img src="https://img.shields.io/badge/commands-9-green?style=flat-square" alt="Commands">
   <img src="https://img.shields.io/badge/platforms-7+-orange?style=flat-square" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/version-0.1.0-purple?style=flat-square" alt="Version">
@@ -20,7 +20,7 @@ Search 300K+ skills across 6 registries. Import from GitHub in one command. Vali
 
 The agent skills ecosystem is exploding — 300K+ skills across a dozen registries, marketplaces, and awesome-lists. But finding the right skill, installing it cleanly, and maintaining it across projects is still manual and fragmented.
 
-skill-factory solves this with **8 slash commands** and **3 procedural skills** that turn your agent into a self-service skill manager:
+skill-factory solves this with **9 slash commands**, **1 agent**, and **3 procedural skills** that turn your agent into a self-service skill manager:
 
 - **Search** across Skyll (89K+), LobeHub (100K+), skills.sh, openskills, and GitHub in a tiered cascade
 - **Import** from any GitHub repo with `npx` or `git clone` fallback + provenance tracking
@@ -38,7 +38,7 @@ skill-factory solves this with **8 slash commands** and **3 procedural skills** 
 /plugin marketplace add rooftop-Owl/skill-factory
 ```
 
-Installs all 8 commands + 3 skills with auto-discovery.
+Installs all 9 commands + 1 agent + 3 skills with auto-discovery.
 
 ### Via skills.sh
 
@@ -69,6 +69,7 @@ cp -r skill-factory/skills/* ~/.claude/skills/
 | `/skills-validate <name>` | Validate against the agentskills.io spec — required fields, size limits, format |
 | `/skills-audit <name>` | Quality audit — trigger description quality, progressive disclosure, body size |
 | `/skills-health` | Health report across all installed skills — coverage, staleness, spec compliance |
+| `/skills-eval` | Session-end skill performance evaluation — analyzes which skills helped, which didn't, and what was missed |
 
 ---
 
@@ -91,6 +92,20 @@ Authoring guide for writing production-quality skills. Covers the SKILL.md spec,
 > *"no skill match", "domain knowledge", "find skill", "acquire skill"*
 
 When you need a skill that doesn't exist yet. Three-tier acquisition: auto-install from trusted sources (MIT/Apache-2.0/MPL-2.0), manual review from spec sources, or synthesize from documentation.
+
+---
+
+## Agent
+
+### skill-evaluator
+
+> Spawned by `/skills-eval` at session end.
+
+Reads the current session transcript via `mcp_session_read`, identifies every skill that was loaded, scores each as **Effective / Neutral / Ineffective**, diagnoses root causes for underperformers, and flags missed opportunities where a skill could have helped but wasn't loaded.
+
+Produces a structured report with per-skill findings and actionable recommendations. Optionally triggers `/skills-audit` on flagged skills with user confirmation.
+
+> Requires Claude Code or OpenCode with session reading tools.
 
 ---
 
@@ -134,6 +149,8 @@ skill-factory uses standard tools (`npx`, `git`, `curl`) and produces standard `
 skill-factory/
 ├── .claude-plugin/
 │   └── plugin.json                  # Claude Code plugin manifest
+├── agents/
+│   └── skill-evaluator.md           # Session-end skill performance analysis
 ├── skills/
 │   ├── skill-management/SKILL.md    # Import, remove, list, validate
 │   ├── skill-development/SKILL.md   # Author and publish skills
@@ -147,7 +164,8 @@ skill-factory/
 │   ├── skills-create.md             # Scaffold new skill
 │   ├── skills-validate.md           # Spec validation
 │   ├── skills-audit.md              # Quality audit
-│   └── skills-health.md             # Health report
+│   ├── skills-health.md             # Health report
+│   └── skills-eval.md              # Session-end evaluation
 ├── handbook/
 │   ├── search-tiers.md              # Full search cascade reference
 │   ├── publishing-skills.md         # How to publish to skills.sh
