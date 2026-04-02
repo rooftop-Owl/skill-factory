@@ -1,9 +1,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/skills-3-blue?style=flat-square" alt="Skills">
   <img src="https://img.shields.io/badge/commands-9-green?style=flat-square" alt="Commands">
+  <img src="https://img.shields.io/badge/agents-1-purple?style=flat-square" alt="Agents">
   <img src="https://img.shields.io/badge/platforms-7+-orange?style=flat-square" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/version-0.1.0-purple?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.2.0-purple?style=flat-square" alt="Version">
 </p>
 
 # skill-factory
@@ -27,6 +28,7 @@ skill-factory solves this with **9 slash commands**, **1 agent**, and **3 proced
 - **Validate** against the [agentskills.io](https://agentskills.io) open specification
 - **Audit** quality — trigger descriptions, frontmatter, progressive disclosure
 - **Remove** cleanly with manifest archival (never lose track of what was installed)
+- **Evaluate** session-level skill effectiveness — what helped, what didn't, what was missing
 
 ---
 
@@ -99,13 +101,13 @@ When you need a skill that doesn't exist yet. Three-tier acquisition: auto-insta
 
 ### skill-evaluator
 
-> Spawned by `/skills-eval` at session end.
+At session end, run `/skills-eval` to find out whether the right skills were loaded and whether they actually helped.
 
-Reads the current session transcript via `mcp_session_read`, identifies every skill that was loaded, scores each as **Effective / Neutral / Ineffective**, diagnoses root causes for underperformers, and flags missed opportunities where a skill could have helped but wasn't loaded.
+The agent reads the current session transcript, identifies every skill that was loaded, and scores each as **Effective**, **Neutral**, or **Ineffective**. For underperformers, it diagnoses the root cause (wrong skill, outdated content, poor trigger, too broad, too narrow). For domains where no skill was loaded at all, it flags the missed opportunity.
 
-Produces a structured report with per-skill findings and actionable recommendations. Optionally triggers `/skills-audit` on flagged skills with user confirmation.
+Output is a structured report with per-skill findings and actionable next steps. Optionally triggers `/skills-audit` on flagged skills.
 
-> Requires Claude Code or OpenCode with session reading tools.
+> Requires Claude Code or OpenCode with session reading tools (`mcp_session_read`).
 
 ---
 
@@ -165,7 +167,7 @@ skill-factory/
 │   ├── skills-validate.md           # Spec validation
 │   ├── skills-audit.md              # Quality audit
 │   ├── skills-health.md             # Health report
-│   └── skills-eval.md              # Session-end evaluation
+│   └── skills-eval.md               # Session-end evaluation
 ├── handbook/
 │   ├── search-tiers.md              # Full search cascade reference
 │   ├── publishing-skills.md         # How to publish to skills.sh
@@ -191,7 +193,7 @@ Deep-dive references for skill authors and power users:
 
 ## Design Decisions
 
-**Pure skills + commands, no Python tools.** The agent IS the engine. skill-factory provides the knowledge (skills) and the entry points (commands) — the agent's native tool-calling abilities handle execution. This keeps the plugin portable across all platforms without runtime dependencies.
+**Agent IS the engine.** skill-factory provides knowledge (skills), entry points (commands), and one analytical agent — your coding agent's native tool-calling handles all execution. No Python runtime, no server dependencies. Portable across platforms.
 
 **File-level copyleft (MPL-2.0).** Modified files must stay open-source. Patent grant protects contributors. But you can freely combine skill-factory with proprietary projects in separate files. See [LICENSE](./LICENSE).
 
