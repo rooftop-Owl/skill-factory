@@ -1,6 +1,6 @@
 {
   "name": "skill-factory",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Portable skill lifecycle manager for AI coding agents — search, import, validate, evaluate, remove. Works with skills.sh, Claude Code plugins, and any SKILL.md-compatible platform.",
   "author": {
     "name": "rooftop-Owl"

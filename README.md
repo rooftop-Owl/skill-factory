@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/agents-1-purple?style=flat-square" alt="Agents">
   <img src="https://img.shields.io/badge/platforms-7+-orange?style=flat-square" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/version-0.2.0-purple?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.2.1-purple?style=flat-square" alt="Version">
 </p>
 
 # skill-factory
