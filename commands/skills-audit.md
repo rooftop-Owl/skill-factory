@@ -36,6 +36,12 @@ Read `.claude/skills/<name>/SKILL.md` and check:
    - 3-6 triggers → "good"
    - > 6 triggers → "excellent"
 
+5. **Trigger output quality**:
+   - Read `.sisyphus/skill-index.json` and find the entry for the audited skill
+   - Examine its `triggers` array
+   - Score each trigger: "actionable" if it contains a verb or is a natural multi-word phrase (e.g. `"plan this"`, `"break this down"`); "junk" if it is a single-word meta-noun with no action (e.g. `"context-aware"`, `"inline"`, `"planning"`, `"context"`, `"following"`, `"true"`, `"false"`)
+   - Score: ≥50% actionable → "good"; <50% actionable → "poor — triggers contain meta-terms, not user phrases"
+   - If skill not found in index: output `"unindexed — run skill_indexer to check"`
 **Output**:
 ```
 Audit: my-skill
@@ -43,6 +49,7 @@ Audit: my-skill
   Content depth: good (3.2KB)
   Structure: 2/3 (missing references/)
   Trigger coverage: good (4 triggers)
+  Trigger quality: good (8/11 actionable)
 
   Overall: B — solid skill, add "Not needed when..." to description
 ```
