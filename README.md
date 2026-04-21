@@ -37,7 +37,8 @@ skill-factory solves this with **9 slash commands**, **1 agent**, and **3 proced
 ### As a Claude Code Plugin
 
 ```bash
-/plugin marketplace add rooftop-Owl/skill-factory
+/plugin marketplace add rooftop-Owl https://github.com/rooftop-Owl/rooftop-owl-marketplace.git
+/plugin install skill-factory
 ```
 
 Installs all 9 commands + 1 agent + 3 skills with auto-discovery.
@@ -134,7 +135,7 @@ skill-factory uses standard tools (`npx`, `git`, `curl`) and produces standard `
 
 | Platform | Install Method |
 |---|---|
-| **Claude Code** | `/plugin marketplace add rooftop-Owl/skill-factory` |
+| **Claude Code** | `/plugin install skill-factory` |
 | **Codex** | `npx skills add rooftop-Owl/skill-factory` |
 | **Cursor** | `npx skills add rooftop-Owl/skill-factory` |
 | **Gemini CLI** | `npx skills add rooftop-Owl/skill-factory` |
