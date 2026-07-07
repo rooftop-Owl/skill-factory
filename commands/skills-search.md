@@ -1,5 +1,6 @@
 ---
 description: Search skills.sh and Skyll marketplaces for skills by keyword
+argument-hint: "<query>"
 ---
 
 Search external skill marketplaces for skills matching a query.

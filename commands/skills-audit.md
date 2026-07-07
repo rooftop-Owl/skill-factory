@@ -1,5 +1,6 @@
 ---
 description: Quality audit for a specific skill — triggers, description, size
+argument-hint: "<skill-name>"
 ---
 
 Assess the quality of a skill beyond basic validation.
