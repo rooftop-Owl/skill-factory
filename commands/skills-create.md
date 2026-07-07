@@ -1,5 +1,6 @@
 ---
 description: Scaffold a new SKILL.md with valid agentskills.io frontmatter
+argument-hint: "<skill-name>"
 ---
 
 Create a new skill directory with a properly structured SKILL.md template.

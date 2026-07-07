@@ -76,6 +76,8 @@ Skills following this spec work across all compatible platforms:
 
 The `npx skills` CLI auto-detects installed platforms and places skills in the correct directory.
 
+> **Portable baseline, not identical behavior.** This spec is the lowest common denominator — a skill that passes it *installs* everywhere, but each platform reads `SKILL.md` a little differently (stricter parsers, extra fields, name conventions), so spec-valid ≠ platform-valid. Validate against a specific target with `/skills-validate <skill> --platform <name>`. The divergence each profile encodes is documented in [`platform-profiles.md`](./platform-profiles.md).
+
 ## Validation
 
 A skill is spec-compliant when:

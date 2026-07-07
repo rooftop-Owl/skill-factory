@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/agents-1-purple?style=flat-square" alt="Agents">
   <img src="https://img.shields.io/badge/platforms-7+-orange?style=flat-square" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/version-0.2.1-purple?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.4.0-purple?style=flat-square" alt="Version">
 </p>
 
 # skill-factory
@@ -69,7 +69,7 @@ cp -r skill-factory/skills/* ~/.claude/skills/
 | `/skills-remove <name>` | Remove an imported skill with manifest archival. Never lose history |
 | `/skills-list` | Show all imported skills — source, status, install date |
 | `/skills-create <name>` | Scaffold a new `SKILL.md` with valid frontmatter and directory structure |
-| `/skills-validate <name>` | Validate against the agentskills.io spec — required fields, size limits, format |
+| `/skills-validate <name>` | Validate against the agentskills.io spec; `--platform claude-code` adds parser-quirk + CC-field checks (spec-valid ≠ platform-valid) |
 | `/skills-audit <name>` | Quality audit — trigger description quality, progressive disclosure, body size |
 | `/skills-health` | Health report across all installed skills — coverage, staleness, spec compliance |
 | `/skills-eval` | Session-end skill performance evaluation — analyzes which skills helped, which didn't, and what was missed |

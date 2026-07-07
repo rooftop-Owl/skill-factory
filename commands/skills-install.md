@@ -1,5 +1,6 @@
 ---
 description: Import skills from skills.sh ecosystem into your project
+argument-hint: "<owner/repo>"
 ---
 
 Import skills from a GitHub repository into `.claude/skills/`.

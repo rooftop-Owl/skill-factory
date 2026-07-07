@@ -1,5 +1,6 @@
 ---
 description: Remove an imported skill with manifest archival
+argument-hint: "<skill-name>"
 ---
 
 Remove a skill that was imported via `/skills-install`.
