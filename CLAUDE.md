@@ -17,3 +17,5 @@ Portable skill lifecycle manager for AI coding agents.
 - All commands are standalone — no subcommand patterns
 - `/skills-eval` spawns the `skill-evaluator` agent to analyze the current session
 - Session analysis requires `mcp_session_read` (Claude Code / OpenCode)
+- `/skills-eval --ab` (`scripts/skill_ab.py`) and the `/skills-health` never-invoked count (`scripts/skill_usage.py`) are Claude Code only, stdlib Python 3.8+
+- Tests: `python3 -m pytest tests/ -q` (covers `scripts/`)
