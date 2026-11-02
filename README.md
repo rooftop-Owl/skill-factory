@@ -13,7 +13,7 @@
 
 Search 300K+ skills across 6 registries. Import from GitHub in one command. Validate against the open spec. Remove cleanly with provenance tracking. Works with Claude Code, Codex, Cursor, Gemini CLI, and every platform that reads `SKILL.md`.
 
-> No runtime. No server. No lock-in. Your agent IS the engine.
+> No server. No lock-in. Your agent IS the engine. (The Claude Code-only measurement features run stdlib Python scripts.)
 
 ---
 

@@ -49,6 +49,6 @@ Scan all skills in `.claude/skills/` and produce an aggregate health report.
      agora-council, armory, ...
    invoked: external-adoption (11), eval-integrity (8), ...
    ```
-   M counts only the project's `.claude/skills/`, not user-level or plugin skills. Claude Code deletes transcripts after `cleanupPeriodDays` (default 30), so "never invoked" holds only for the printed window. Exit 2 means no transcripts exist for this project (another platform, or a new project): print "Never-used count: no Claude Code transcripts for this project" and continue.
+   The count covers only the project's `.claude/skills/`, not user-level or plugin skills; a namespaced `plugin:skill` call never counts toward a project skill of the same name. Claude Code deletes transcripts after `cleanupPeriodDays` (default 30), so "never invoked" holds only for the printed window. Exit 2 means no transcripts exist for this project (another platform, or a new project): print "Never-used count: no Claude Code transcripts for this project" and continue.
 
 5. **If no skills found**: "No skills found in `.claude/skills/`. Use `/skills-install` to add some or `/skills-create` to author your own."

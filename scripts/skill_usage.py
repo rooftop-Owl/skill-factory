@@ -4,8 +4,9 @@
 Reads ~/.claude/projects/<slug>/ plus every sibling <slug>--worktrees-* directory,
 recursing into nested subagent transcripts (<session>/subagents/*.jsonl). An
 invocation is a `Skill` tool_use whose input.skill names the skill, or a slash
-command `<command-name>/<skill></command-name>` recorded for it. Plugin-namespaced
-names (`plugin:skill`) are compared on the bare skill name.
+command `<command-name>/<skill></command-name>` recorded for it. Only unnamespaced
+names count: `plugin:skill` is a plugin's skill even when a project skill shares
+the bare name.
 
 The skill set is the project's .claude/skills/*/SKILL.md only: user-level and
 plugin skills are not counted. Claude Code deletes transcripts after
@@ -27,7 +28,8 @@ DATE_RE = re.compile(r'"timestamp":"(\d{4}-\d{2}-\d{2})')
 
 
 def norm_skill(name: str) -> str:
-    return name.strip().lstrip("/").split(":")[-1]
+    """Strip a leading slash; a `plugin:skill` name keeps its namespace."""
+    return name.strip().lstrip("/")
 
 
 def project_slug(cwd: str) -> str:
@@ -82,7 +84,9 @@ def scan(dirs: list, skills: list) -> dict:
                         dates.append(m.group(1))
                     for name in invocations_in_line(line):
                         n = norm_skill(name)
-                        if n in counts:  # drops built-ins such as /model, /clear
+                        # drops built-ins (/model, /clear) and namespaced plugin:skill
+                        # calls, which name a plugin's skill, not the project's
+                        if n in counts:
                             counts[n] += 1
     return {"counts": counts, "transcripts": files,
             "first": min(dates) if dates else None, "last": max(dates) if dates else None}
@@ -99,7 +103,8 @@ def render(res: dict) -> str:
     used = sorted(((c, s) for s, c in counts.items() if c), reverse=True)
     if used:
         lines.append("invoked: " + ", ".join(f"{s} ({c})" for c, s in used))
-    lines.append("(M counts project .claude/skills/ only; Claude Code deletes transcripts after cleanupPeriodDays, default 30)")
+    lines.append("(counts only the project's .claude/skills/, not user-level or plugin skills; "
+                 "Claude Code deletes transcripts after cleanupPeriodDays, default 30)")
     return "\n".join(lines)
 
 

@@ -44,20 +44,10 @@ def test_parse_without_arm_skill_absent_from_init():
     assert f["result_text"] == "ok"
 
 
-def test_setting_sources_dropped_user_and_plugin_skills_in_capture():
-    """The isolation claim the runner rests on: under --setting-sources project,local
-    the only non-builtin skill in init is the clone's own, and the without arm has
-    one fewer skill than the with arm (that skill)."""
-    init = [json.loads(l) for l in stream("with").splitlines()][0]["skills"]
-    init_c = [json.loads(l) for l in stream("without").splitlines()][0]["skills"]
-    assert set(init) - set(init_c) == {"sf-probe"}
-    assert set(init_c) <= set(init)
-
-
-def test_namespaced_skill_tool_use_counts_on_bare_name():
+def test_namespaced_skill_tool_use_is_not_the_project_skill():
     line = json.dumps({"type": "assistant", "message": {"content": [
         {"type": "tool_use", "name": "Skill", "input": {"skill": "myplug:sf-probe"}}]}})
-    assert skill_ab.parse_stream(stream("with") + line + "\n", "sf-probe")["invocations"] == 2
+    assert skill_ab.parse_stream(stream("with") + line + "\n", "sf-probe")["invocations"] == 1
 
 
 @pytest.mark.parametrize("arm,fixture,rc,expected", [
@@ -69,16 +59,16 @@ def test_namespaced_skill_tool_use_counts_on_bare_name():
 ])
 def test_classify(arm, fixture, rc, expected):
     raw = stream(fixture)
-    assert skill_ab.classify(arm, skill_ab.parse_stream(raw, "sf-probe"), rc, raw) == expected
+    assert skill_ab.classify(arm, skill_ab.parse_stream(raw, "sf-probe"), rc) == expected
 
 
 def test_classify_unavailable_on_session_limit_and_on_no_init():
     raw = json.dumps({"type": "result", "subtype": "success", "is_error": True,
                       "result": "You've hit your session limit"})
     f = skill_ab.parse_stream(raw, "x")
-    assert skill_ab.classify("with", f, 1, raw) == "unavailable"
+    assert skill_ab.classify("with", f, 1) == "unavailable"
     lim = stream("without").splitlines()[0] + "\n" + raw
-    assert skill_ab.classify("without", skill_ab.parse_stream(lim, "x"), 1, lim) == "unavailable"
+    assert skill_ab.classify("without", skill_ab.parse_stream(lim, "x"), 1) == "unavailable"
 
 
 # ---------------------------------------------------------------- statistics
@@ -235,7 +225,7 @@ def test_usage_scan_counts_worktrees_and_subagents_and_drops_builtins(tmp_path):
     (main / "s1.jsonl").write_text("\n".join([
         user_cmd,                                             # /clear: built-in, ignored
         skill.replace("merge-reviewed-pr", "alpha"),
-        sys_cmd.replace("/rename", "/myplug:beta"),           # namespaced -> beta
+        sys_cmd.replace("/rename", "/beta"),
     ]) + "\n")
     (main / "sess1" / "subagents" / "agent-1.jsonl").write_text(
         skill.replace("merge-reviewed-pr", "alpha") + "\n")

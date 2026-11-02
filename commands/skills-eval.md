@@ -43,10 +43,14 @@ It reports two things separately, because a skill fails in two ways:
 
 ```
 <tasks>/<task-id>/prompt.txt   # the prompt given to the worker
-<tasks>/<task-id>/oracle.sh    # run after the worker exits: bash oracle.sh <clone> <result.txt>; exit 0 = pass
+<tasks>/<task-id>/oracle.sh    # run after the worker stops: bash oracle.sh <run-tree> <result.txt>
 ```
 
-Keep the task set outside the project: the oracle must not be readable by the worker. A worked example is in `tests/fixtures/ab/` of this plugin.
+Oracle exit codes: `0` pass, `1`–`124` fail. A timeout, exit `125` or higher (`126`/`127`: cannot execute, command not found) or a signal marks the run `oracle-error`: excluded, never counted as a fail.
+
+The tasks directory must be outside the project; the script refuses one inside it, because it would be copied into every run tree. A worked example is in `tests/fixtures/ab/` of this plugin.
+
+**Not a sandbox.** The worker runs as you with `--dangerously-skip-permissions`: full access to your files, network and credentials, and no permission prompts. The run tree is only its starting directory. Nothing stops it reading the tasks directory (oracles included) or changing the original project; the oracle is protected only by the worker not being told its path. Run task sets you would let an agent run unattended.
 
 ### Run
 
@@ -64,10 +68,14 @@ Keep the task set outside the project: the oracle must not be readable by the wo
 
 ### How the arms differ
 
-- Every run gets its own `git clone --local --no-hardlinks` of the project (HEAD; uncommitted changes outside the skill are not included) under a temp work root.
-- `with` copies the skill directory into the clone's `.claude/skills/<name>/`; `without` deletes that directory; nothing else differs.
-- `--control` adds a third arm: same `name` and `description`, body replaced by filler of equal byte length. It separates "this skill's content helped" from "any skill-shaped text in context helped".
+- Every run gets its own run tree under a temp work root: a copy of the project's working tree without `.git` (git projects: tracked and untracked-not-ignored files, uncommitted changes included; non-git projects: the whole directory).
+- `with` copies the skill directory into the run tree's `.claude/skills/<name>/`; `without` deletes that directory (and the skill's own directory, if `--skill` named a path inside the project).
+- For a git project the arm's tree is then committed into a new repository: no remote, and no history that holds the skill, so `git log -p`, `git diff` or `git checkout` in the `without` or `control` arm cannot recover it.
+- `--control` adds a third arm: same `name` and `description`; the SKILL.md body and every other file in the skill directory are replaced by filler of equal byte length. It separates "this skill's content helped" from "any skill-shaped text in context helped".
 - Every run passes `--setting-sources project,local`, which drops `~/.claude/skills` and installed plugins, so a user-level or plugin copy of the skill cannot leak into the `without` arm. Each run's `system/init` event lists the loaded skills; a `without` run that lists the skill (`contaminated`) or a `with`/`control` run that does not (`not-loaded`) is excluded and the script exits 1.
-- Model and effort are always passed explicitly; the model actually used (from `modelUsage`) is printed as "effect measured on <model>/<effort>".
+- Model and effort are always passed explicitly. The header prints the union of the models reported in `modelUsage` across all runs ("effect measured on <models>/<effort>"), or `model unknown (requested <model>)` if no run reported one.
+- An error result other than running out of turns (API error, overload, usage limit) marks the run `unavailable`; the classification reads the structured `result` event, never assistant or tool text. On timeout the worker's whole process group is killed before the oracle runs. Each run keeps `stream.jsonl`, `stderr.txt` and `oracle.txt` in its run directory.
 
-Exit codes: `0` report written, `1` report written with invalid runs excluded, `2` refused (CLI absent, bad task set, work root under a `CLAUDE.md`, or 3 consecutive runs unavailable — usually the account's usage limit).
+Exit codes: `0` report written, `1` report written with invalid runs excluded, `2` refused (CLI absent, bad task set, tasks dir inside the project, work root under a `CLAUDE.md` or not empty, or 3 consecutive runs unavailable — usually the account's usage limit; in that case a receipt with the completed runs is still written, marked `aborted`).
+
+All tasks are pooled into one 2×2 table per comparison; there is no per-task breakdown or stratified test yet, so read multi-task results with that in mind.
