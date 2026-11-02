@@ -44,6 +44,17 @@ def test_parse_without_arm_skill_absent_from_init():
     assert f["result_text"] == "ok"
 
 
+def test_setting_sources_dropped_user_and_plugin_skills_in_capture():
+    """Pins the captured isolation premise (Claude Code 2.1.314 probe): under
+    --setting-sources project,local the with-minus-without init skill set is exactly
+    the project skill. A fixture check: it documents the probe and cannot detect a
+    later CLI change."""
+    init = [json.loads(l) for l in stream("with").splitlines()][0]["skills"]
+    init_c = [json.loads(l) for l in stream("without").splitlines()][0]["skills"]
+    assert set(init) - set(init_c) == {"sf-probe"}
+    assert set(init_c) <= set(init)
+
+
 def test_namespaced_skill_tool_use_is_not_the_project_skill():
     line = json.dumps({"type": "assistant", "message": {"content": [
         {"type": "tool_use", "name": "Skill", "input": {"skill": "myplug:sf-probe"}}]}})

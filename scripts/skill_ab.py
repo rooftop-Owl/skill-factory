@@ -13,14 +13,25 @@ each run with that task's deterministic oracle. Arms:
 Run tree: the project's working tree (git: tracked plus untracked-not-ignored files)
 is copied without .git, the arm is applied, and for a git project a new repository
 is created with one commit. The run tree has no remote and no history holding the
-skill, so `git log -p`, `git diff` or `git checkout` cannot recover it.
+skill, so `git log -p`, `git diff` or `git checkout` cannot recover it. The without
+and control trees also lose every other copy of the skill: any directory whose
+SKILL.md declares the same name (a plugin mirror such as skills/<name>/) and any file
+byte-identical to the skill's SKILL.md. The run is refused if any remaining file
+(up to SCAN_MAX_BYTES) still contains the SKILL.md body.
+
+Stopping the worker: it runs in its own process group, which is killed when it exits
+or times out. Claude Code starts Bash-tool commands in their own session (setsid), so
+they leave that group; after the kill, /proc is swept for any process whose cwd or an
+open file is inside the run tree, and each one is killed. A run where the sweep found
+one is `stray-process` (not scored), and the count is in the receipt. Linux only:
+without /proc the script refuses to run.
 
 Adherence (was the skill invoked) and effect (oracle pass rate) are reported
 separately: an outcome alone cannot say whether a skill failed because it was not
 followed or because following it did not help.
 
 Isolation: every run passes `--setting-sources project,local`, which drops
-~/.claude/skills and installed plugins, so the clone's own .claude/skills is the
+~/.claude/skills and installed plugins, so the run tree's own .claude/skills is the
 only non-builtin skill source. Each run's stream-json `system/init` event lists the
 loaded skills; a run whose arm disagrees with that list is excluded as invalid.
 
@@ -32,7 +43,7 @@ inside the project (it would be copied into every run tree), but outside it the
 oracle is protected only by the worker not being told its path.
 
 Task layout: <tasks>/<id>/prompt.txt and <tasks>/<id>/oracle.sh. The oracle runs
-after the worker (and every process it started) has been stopped, as
+after the worker's group and the swept processes have been killed, as
 `bash oracle.sh <run_tree> <result_text_file>`. Exit 0 is a pass and 1-124 a fail;
 a timeout, exit >= 125 (126/127: cannot execute / not found) or a signal makes the
 run invalid (oracle-error), never a fail.
@@ -53,6 +64,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -64,6 +76,9 @@ UNAVAILABLE_MAX_CONSECUTIVE = 3
 # every other error result (API error, overload, usage limit) means no measured work.
 REAL_RUN_ERROR_SUBTYPES = ("error_max_turns",)
 ORACLE_ERROR_MIN_RC = 125
+PROC = Path("/proc")
+SCAN_MAX_BYTES = 20 * 1024 * 1024
+PIPE_DRAIN_SECONDS = 10
 FILLER_LINE = "This line is filler text of matched length and carries no instructions.\n"
 PARENT_CONTEXT_FILES = ("CLAUDE.md", "CLAUDE.local.md", ".claude/skills",
                         ".claude/settings.json", ".claude/settings.local.json")
@@ -232,16 +247,29 @@ def is_git_project(project: Path) -> bool:
     return (project / ".git").exists()
 
 
+def tree_files(project: Path) -> list:
+    """Relative paths the run tree copies (git: tracked + untracked-not-ignored)."""
+    if not is_git_project(project):
+        out = []
+        for d, dirs, files in os.walk(project):
+            if Path(d) == project and ".git" in dirs:
+                dirs.remove(".git")
+            out += [Path(d, f).relative_to(project) for f in files]
+            out += [Path(d, x).relative_to(project) for x in dirs if Path(d, x).is_symlink()]
+        return sorted(out)
+    listed = subprocess.run(["git", "-C", str(project), "ls-files", "-z", "--cached", "--others",
+                             "--exclude-standard"], capture_output=True, check=True).stdout
+    return sorted({Path(r) for r in listed.decode("utf-8", "surrogateescape").split("\0") if r})
+
+
 def copy_working_tree(project: Path, dest: Path) -> None:
-    """Copy the working tree without .git (git: tracked + untracked-not-ignored files)."""
+    """Copy the working tree without .git."""
     if not is_git_project(project):
         shutil.copytree(project, dest, symlinks=True,
                         ignore=lambda d, names: [".git"] if Path(d) == project else [])
         return
-    listed = subprocess.run(["git", "-C", str(project), "ls-files", "-z", "--cached", "--others",
-                             "--exclude-standard"], capture_output=True, check=True).stdout
     dest.mkdir(parents=True)
-    for rel in sorted(set(filter(None, listed.decode("utf-8", "surrogateescape").split("\0")))):
+    for rel in tree_files(project):
         s, d = project / rel, dest / rel
         if not (s.exists() or s.is_symlink()):
             continue  # tracked but deleted in the working tree
@@ -252,6 +280,56 @@ def copy_working_tree(project: Path, dest: Path) -> None:
             shutil.copytree(s, d, symlinks=True, ignore=shutil.ignore_patterns(".git"))
         else:
             shutil.copy2(s, d)
+
+
+FRONTMATTER_RE = re.compile(rb"\A---\r?\n(.*?)\r?\n---\r?\n?", re.S)
+NAME_RE = re.compile(rb"^name:[ \t]*['\"]?([^'\"\r\n]*?)['\"]?[ \t]*$", re.M)
+
+
+def frontmatter_name(data: bytes):
+    m = FRONTMATTER_RE.match(data)
+    n = NAME_RE.search(m.group(1)) if m else None
+    return n.group(1).decode("utf-8", "replace") if n else None
+
+
+def skill_body(data: bytes) -> bytes:
+    m = FRONTMATTER_RE.match(data)
+    return (data[m.end():] if m else data).strip()
+
+
+def _under(rel: Path, roots) -> bool:
+    return any(rel == r or r in rel.parents for r in roots)
+
+
+def plan_removals(project: Path, files: list, skill: str, skill_src: Path, src_rel) -> list:
+    """Every copy of the skill the without/control trees must not hold."""
+    removals = {Path(".claude") / "skills" / skill}
+    if src_rel is not None:
+        removals.add(src_rel)
+    md = (skill_src / "SKILL.md").read_bytes()
+    for rel in files:
+        p = project / rel
+        if p.is_symlink() or not p.is_file():
+            continue
+        size = p.stat().st_size
+        if rel.name == "SKILL.md" and size <= SCAN_MAX_BYTES and frontmatter_name(p.read_bytes()) == skill:
+            removals.add(rel.parent)
+        elif size == len(md) and p.read_bytes() == md:
+            removals.add(rel)
+    return sorted(removals)
+
+
+def check_no_leftover_copy(project: Path, files: list, removals: list, skill_src: Path) -> None:
+    body = skill_body((skill_src / "SKILL.md").read_bytes())
+    if not body:
+        return
+    for rel in files:
+        p = project / rel
+        if _under(rel, removals) or p.is_symlink() or not p.is_file():
+            continue
+        if p.stat().st_size <= SCAN_MAX_BYTES and body in p.read_bytes():
+            raise Refusal(f"{rel} contains the skill's SKILL.md body, so the without and control "
+                          "arms would still see it; remove or move that copy first")
 
 
 def init_run_repo(tree: Path) -> None:
@@ -285,17 +363,19 @@ def remove_path(p: Path) -> None:
         shutil.rmtree(p)
 
 
-def prepare_arm(tree: Path, arm: str, skill: str, skill_src: Path, src_rel: Path | None) -> None:
-    """Apply the arm. `src_rel` is the skill's own path inside the project, if any:
-    it is removed too, so the without/control tree holds no second copy."""
+def prepare_arm(tree: Path, arm: str, skill: str, skill_src: Path, removals: list) -> None:
+    """Apply the arm. without/control drop every planned copy of the skill (see
+    plan_removals); with only replaces .claude/skills/<name>/ by the source."""
     target = tree / ".claude" / "skills" / skill
     remove_path(target)
-    if src_rel is not None:
-        remove_path(tree / src_rel)
-    if arm == "without":
+    if arm == "with":
+        shutil.copytree(skill_src, target)
         return
-    shutil.copytree(skill_src, target)
+    for rel in removals:
+        remove_path(tree / rel)
     if arm == CONTROL_ARM:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(skill_src, target)
         for f in sorted(p for p in target.rglob("*") if p.is_file()):
             if f == target / "SKILL.md":
                 f.write_text(control_skill_md(f.read_text(encoding="utf-8")), encoding="utf-8")
@@ -304,9 +384,9 @@ def prepare_arm(tree: Path, arm: str, skill: str, skill_src: Path, src_rel: Path
 
 
 def build_run_tree(project: Path, dest: Path, arm: str, skill: str, skill_src: Path,
-                   src_rel: Path | None) -> None:
+                   removals: list) -> None:
     copy_working_tree(project, dest)
-    prepare_arm(dest, arm, skill, skill_src, src_rel)
+    prepare_arm(dest, arm, skill, skill_src, removals)
     if is_git_project(project):
         init_run_repo(dest)
 
@@ -337,33 +417,96 @@ def worker_argv(claude: str, args, prompt: str) -> list:
             "--max-turns", str(args.max_turns), prompt]
 
 
-def run_worker(argv: list, cwd: Path, timeout: int) -> tuple:
-    """Run the worker in its own process group; kill the whole group when it ends or
-    times out, so no child it started can change the tree while the oracle reads it."""
+def _drain(pipe, chunks: list) -> None:
+    while True:
+        b = os.read(pipe.fileno(), 65536)
+        if not b:
+            return
+        chunks.append(b)
+
+
+def processes_rooted_in(tree: Path) -> list:
+    """PIDs (other than this one) whose cwd or an open file is inside `tree`."""
+    root = str(tree.resolve())
+    me, hits = os.getpid(), []
+    for d in PROC.iterdir():
+        if not d.name.isdigit() or int(d.name) == me:
+            continue
+        try:
+            paths = [os.readlink(d / "cwd")]
+        except OSError:
+            continue  # gone, a zombie, or not ours
+        try:
+            for fd in (d / "fd").iterdir():
+                try:
+                    paths.append(os.readlink(fd))
+                except OSError:
+                    pass
+        except OSError:
+            pass
+        if any(p == root or p.startswith(root + os.sep) for p in paths):
+            hits.append(int(d.name))
+    return hits
+
+
+def kill_rooted(tree: Path) -> int:
+    """Kill every process rooted in the run tree; return how many were found."""
+    found = set()
+    for _ in range(20):
+        pids = processes_rooted_in(tree)
+        if not pids:
+            break
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGKILL)
+                found.add(pid)
+            except ProcessLookupError:
+                pass
+        time.sleep(0.1)
+    return len(found)
+
+
+def run_group(argv: list, cwd: Path, timeout: int) -> tuple:
+    """Run argv in its own session; when it exits or times out kill its process group,
+    then every process still rooted in `cwd` (children that left the group with setsid).
+
+    Returns (rc or None on timeout, stdout, stderr, strays). Output is read by threads
+    and joined with a bound, so a child that keeps a pipe open cannot hang the run.
+    """
     proc = subprocess.Popen(argv, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             start_new_session=True)
+    bufs = ([], [])
+    readers = [threading.Thread(target=_drain, args=(pipe, buf), daemon=True)
+               for pipe, buf in zip((proc.stdout, proc.stderr), bufs)]
+    for t in readers:
+        t.start()
     try:
-        out, err = proc.communicate(timeout=timeout)
-        rc = proc.returncode
+        rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, signal.SIGKILL)
-        out, err = proc.communicate()
-        rc = 124
+        rc = None
     try:
-        os.killpg(proc.pid, signal.SIGKILL)  # children left running after a normal exit
+        os.killpg(proc.pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
-    return rc, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+    if rc is None:
+        proc.wait()
+    strays = kill_rooted(cwd)
+    for t in readers:
+        t.join(timeout=PIPE_DRAIN_SECONDS)
+    out, err = (b"".join(b).decode("utf-8", "replace") for b in bufs)
+    return rc, out, err, strays
+
+
+def run_worker(argv: list, cwd: Path, timeout: int) -> tuple:
+    """(rc, stdout, stderr, strays); rc 124 on timeout."""
+    rc, out, err, strays = run_group(argv, cwd, timeout)
+    return (124 if rc is None else rc), out, err, strays
 
 
 def run_oracle(oracle: Path, tree: Path, result_file: Path, timeout: int) -> tuple:
     """(rc, output); rc is None on timeout."""
-    try:
-        cp = subprocess.run(["bash", str(oracle), str(tree), str(result_file)],
-                            cwd=str(tree), capture_output=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return None, "oracle timed out\n"
-    return cp.returncode, (cp.stdout + cp.stderr).decode("utf-8", "replace")
+    rc, out, err, _ = run_group(["bash", str(oracle), str(tree), str(result_file)], tree, timeout)
+    return rc, out + err + ("oracle timed out\n" if rc is None else "")
 
 
 def oracle_ok(rc) -> bool:
@@ -427,6 +570,12 @@ def main(argv=None) -> int:
         src = src.resolve()
         skill = src.name
         src_rel = src.relative_to(project) if project in src.parents else None
+        if not (PROC / "self" / "cwd").exists():
+            raise Refusal(f"/proc is not available (looked at {PROC}): it is needed to find and "
+                          "stop worker children that leave the process group (Linux only)")
+        files = tree_files(project)
+        removals = plan_removals(project, files, skill, src, src_rel)
+        check_no_leftover_copy(project, files, removals, src)
         tasks_dir = args.tasks.resolve()
         if tasks_dir == project or project in tasks_dir.parents:
             raise Refusal(f"tasks dir {tasks_dir} is inside the project, so every run tree would "
@@ -436,7 +585,7 @@ def main(argv=None) -> int:
         if args.control:
             control_skill_md((src / "SKILL.md").read_text(encoding="utf-8"))
         # check before creating anything; mkdtemp's dir has the same parents
-        work_root = args.work_root or Path(tempfile.gettempdir()) / "skill-ab-<new>"
+        work_root = args.work_root or Path(tempfile.gettempdir()) / "skill-ab-check"
         check_work_root(work_root, project)
         if args.work_root and work_root.exists() and any(work_root.iterdir()):
             raise Refusal(f"work root {work_root} is not empty (an earlier run?); "
@@ -447,7 +596,8 @@ def main(argv=None) -> int:
 
     plan = [(t, arm, i) for t in tasks for i in range(args.n) for arm in arms]
     print(f"skill-ab: {len(plan)} run(s) = {len(tasks)} task(s) x {len(arms)} arm(s) x N={args.n}; "
-          f"{args.model}/{args.effort}, max-turns {args.max_turns}; work root {work_root}")
+          f"{args.model}/{args.effort}, max-turns {args.max_turns}; "
+          f"work root {work_root if args.work_root else '(new temp dir)'}")
     if args.dry_run:
         print("argv:", " ".join(worker_argv(claude, args, "<prompt>")))
         return 0
@@ -461,13 +611,15 @@ def main(argv=None) -> int:
         run_dir = work_root / f"{t['id']}-{arm}-{i}"
         tree = run_dir / "repo"
         run_dir.mkdir(parents=True)
-        build_run_tree(project, tree, arm, skill, src, src_rel)
+        build_run_tree(project, tree, arm, skill, src, removals)
         started = time.time()
-        rc, out, err = run_worker(worker_argv(claude, args, t["prompt"]), tree, args.timeout)
+        rc, out, err, strays = run_worker(worker_argv(claude, args, t["prompt"]), tree, args.timeout)
         (run_dir / "stream.jsonl").write_text(out, encoding="utf-8")
         (run_dir / "stderr.txt").write_text(err, encoding="utf-8")
         facts = parse_stream(out, skill)
         status = classify(arm, facts, rc)
+        if status == "valid" and strays:
+            status = "stray-process"  # something kept running in the tree after the worker
         result_file = run_dir / "result.txt"
         result_file.write_text(facts["result_text"], encoding="utf-8")
         oracle_rc, passed = None, False
@@ -479,7 +631,7 @@ def main(argv=None) -> int:
             else:
                 status = "oracle-error"
         run = {"task": t["id"], "arm": arm, "i": i, "rc": rc, "status": status, "passed": passed,
-               "oracle_rc": oracle_rc, "seconds": round(time.time() - started, 1),
+               "oracle_rc": oracle_rc, "strays": strays, "seconds": round(time.time() - started, 1),
                **{k: facts[k] for k in ("invocations", "skill_loaded", "result_subtype",
                                         "terminal_reason", "models")}}
         runs.append(run)

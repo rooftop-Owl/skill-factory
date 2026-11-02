@@ -72,10 +72,13 @@ def test_timeout_mid_multibyte_char_and_orphan_children_killed(project, fake_cli
     rc = run_main(project, work, fake_cli, "--timeout", "1")
     runs = receipt_runs(work)
     assert {r["rc"] for r in runs.values()} == {124}
-    assert all(r["status"] == "valid" for r in runs.values())   # worker started; oracle decides
-    assert rc == 0
     time.sleep(3)
     assert not mark.exists(), "a worker child outlived the timeout and wrote after it"
+    # round 2: the child left the process group (setsid), so it was found by the /proc
+    # sweep; a run with a stray process is not scored
+    assert {r["status"] for r in runs.values()} == {"stray-process"}
+    assert all(r["strays"] >= 1 for r in runs.values())
+    assert rc == 1
 
 
 # 6 "unavailable" was a text grep over the whole stream

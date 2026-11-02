@@ -19,6 +19,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 #            assistant text block; FAKE_RESULT (JSON) replaces the result event.
 #   hang     prints init plus half of a multibyte character, starts a grandchild that
 #            writes $FAKE_MARK after 2 s, then sleeps (for the timeout path)
+#   background  the replay stream, then starts the same grandchild and exits 0
+# The grandchild is started in a new session (start_new_session=True), as Claude Code's
+# Bash tool does (its shell provider spawns with detached: true, i.e. setsid), so it
+# leaves the worker's process group.
 #   limit    prints init plus a session-limit result and exits 1
 # FAKE_STDERR is written to stderr in every mode.
 FAKE_CLAUDE = r'''#!/usr/bin/env python3
@@ -38,7 +42,7 @@ init["skills"] = [("ab-fixture" if s == "sf-probe" else s) for s in init["skills
 if mode == "hang":
     sys.stdout.buffer.write((json.dumps(init) + "\n").encode() + "한".encode()[:2])
     sys.stdout.flush()
-    subprocess.Popen(["sh", "-c", "sleep 2; echo late > \"$FAKE_MARK\""])
+    subprocess.Popen(["sh", "-c", "sleep 2; echo late > \"$FAKE_MARK\""], start_new_session=True)
     time.sleep(60)
 if mode == "limit":
     print(json.dumps(init))
@@ -61,6 +65,10 @@ for e in out:
     print(json.dumps(e))
 if has and "SF-FIXTURE-7" in skill_md.read_text():
     Path("hello.txt").write_text("SF-FIXTURE-7\n")
+if mode == "background":
+    sys.stdout.flush()
+    subprocess.Popen(["sh", "-c", "sleep 2; echo late > \"$FAKE_MARK\""], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 '''
 
 
