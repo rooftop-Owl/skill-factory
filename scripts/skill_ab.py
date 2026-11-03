@@ -19,12 +19,25 @@ SKILL.md declares the same name (a plugin mirror such as skills/<name>/) and any
 byte-identical to the skill's SKILL.md. The run is refused if any remaining file
 (up to SCAN_MAX_BYTES) still contains the SKILL.md body.
 
-Stopping the worker: it runs in its own process group, which is killed when it exits
-or times out. Claude Code starts Bash-tool commands in their own session (setsid), so
-they leave that group; after the kill, /proc is swept for any process whose cwd or an
-open file is inside the run tree, and each one is killed. A run where the sweep found
-one is `stray-process` (not scored), and the count is in the receipt. Linux only:
-without /proc the script refuses to run.
+Stopping the worker: the script makes itself a child subreaper
+(prctl PR_SET_CHILD_SUBREAPER), so every descendant the worker orphans is reparented to
+the script however it detaches (setsid, chdir, closed descriptors). The worker runs in
+its own process group. When it exits or times out, that group is killed, then every
+remaining descendant of the script is killed and reaped. A descendant outside the
+worker's own group (Claude Code starts Bash-tool commands with setsid) is a stray.
+Finally /proc is swept for processes that are not descendants but whose cwd or an
+open file is inside the run tree (a command started through a long-running server);
+each is killed and counted as a stray. A run with any stray is `stray-process` (not
+scored), and the count is in the receipt. Linux only: without /proc, or if prctl
+fails, the script refuses to run.
+The sweep kills any of your processes rooted in a run tree; do not cd a shell into
+the work root while it runs.
+
+Model and effort are always passed explicitly; the header prints the union of the
+models reported in modelUsage across runs, or "model unknown (requested <model>)".
+
+Per run directory: stream.jsonl, stderr.txt and result.txt for every run; oracle.txt
+for runs that reached the oracle.
 
 Adherence (was the skill invoked) and effect (oracle pass rate) are reported
 separately: an outcome alone cannot say whether a skill failed because it was not
@@ -55,6 +68,7 @@ receipt with the completed runs is still written in the last case).
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import math
 import os
@@ -77,6 +91,7 @@ UNAVAILABLE_MAX_CONSECUTIVE = 3
 REAL_RUN_ERROR_SUBTYPES = ("error_max_turns",)
 ORACLE_ERROR_MIN_RC = 125
 PROC = Path("/proc")
+PR_SET_CHILD_SUBREAPER = 36
 SCAN_MAX_BYTES = 20 * 1024 * 1024
 PIPE_DRAIN_SECONDS = 10
 FILLER_LINE = "This line is filler text of matched length and carries no instructions.\n"
@@ -335,7 +350,7 @@ def check_no_leftover_copy(project: Path, files: list, removals: list, skill_src
 def init_run_repo(tree: Path) -> None:
     """A fresh repository with one commit of the arm's tree: no remote, no skill history."""
     g = ["git", "-C", str(tree), "-c", "user.name=skill-ab", "-c", "user.email=skill-ab@localhost",
-         "-c", "commit.gpgsign=false"]
+         "-c", "commit.gpgsign=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false"]
     subprocess.run(g + ["init", "-q"], check=True)
     subprocess.run(g + ["add", "-A"], check=True)
     subprocess.run(g + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "skill-ab run tree"],
@@ -449,6 +464,65 @@ def processes_rooted_in(tree: Path) -> list:
     return hits
 
 
+def set_subreaper() -> None:
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        ok = libc.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0
+        err = ctypes.get_errno()
+    except (OSError, AttributeError) as e:
+        ok, err = False, str(e)
+    if not ok:
+        raise Refusal(f"cannot become a child subreaper (prctl PR_SET_CHILD_SUBREAPER: {err}); "
+                      "it is needed to stop worker children that detach (Linux only)")
+
+
+def descendants(root: int) -> dict:
+    """pid -> (ppid, pgrp, state) for every process descended from `root`."""
+    table = {}
+    for d in PROC.iterdir():
+        if not d.name.isdigit():
+            continue
+        try:
+            stat = (d / "stat").read_text()
+        except OSError:
+            continue
+        rest = stat[stat.rindex(")") + 2:].split()
+        table[int(d.name)] = (int(rest[1]), int(rest[2]), rest[0])
+    kids = {}
+    for pid, (ppid, _, _) in table.items():
+        kids.setdefault(ppid, []).append(pid)
+    out, stack = {}, [root]
+    while stack:
+        for c in kids.get(stack.pop(), []):
+            out[c] = table[c]
+            stack.append(c)
+    return out
+
+
+def kill_descendants(worker_pgid: int) -> int:
+    """Kill and reap every descendant of this process; return how many were alive and
+    outside the worker's own (already killed) process group."""
+    me, strays = os.getpid(), set()
+    for _ in range(100):
+        desc = descendants(me)
+        if not desc:
+            break
+        for pid, (ppid, pgrp, state) in desc.items():
+            if state != "Z" and pgrp != worker_pgid:
+                strays.add(pid)
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            if ppid == me:
+                try:
+                    os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    pass
+        time.sleep(0.02)
+    return len(strays)
+
+
 def kill_rooted(tree: Path) -> int:
     """Kill every process rooted in the run tree; return how many were found."""
     found = set()
@@ -468,7 +542,8 @@ def kill_rooted(tree: Path) -> int:
 
 def run_group(argv: list, cwd: Path, timeout: int) -> tuple:
     """Run argv in its own session; when it exits or times out kill its process group,
-    then every process still rooted in `cwd` (children that left the group with setsid).
+    then every other descendant (see kill_descendants), then any non-descendant still
+    rooted in `cwd`.
 
     Returns (rc or None on timeout, stdout, stderr, strays). Output is read by threads
     and joined with a bound, so a child that keeps a pipe open cannot hang the run.
@@ -490,7 +565,7 @@ def run_group(argv: list, cwd: Path, timeout: int) -> tuple:
         pass
     if rc is None:
         proc.wait()
-    strays = kill_rooted(cwd)
+    strays = kill_descendants(proc.pid) + kill_rooted(cwd)
     for t in readers:
         t.join(timeout=PIPE_DRAIN_SECONDS)
     out, err = (b"".join(b).decode("utf-8", "replace") for b in bufs)
@@ -573,6 +648,7 @@ def main(argv=None) -> int:
         if not (PROC / "self" / "cwd").exists():
             raise Refusal(f"/proc is not available (looked at {PROC}): it is needed to find and "
                           "stop worker children that leave the process group (Linux only)")
+        set_subreaper()
         files = tree_files(project)
         removals = plan_removals(project, files, skill, src, src_rel)
         check_no_leftover_copy(project, files, removals, src)

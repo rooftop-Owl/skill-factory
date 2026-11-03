@@ -20,6 +20,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 #   hang     prints init plus half of a multibyte character, starts a grandchild that
 #            writes $FAKE_MARK after 2 s, then sleeps (for the timeout path)
 #   background  the replay stream, then starts the same grandchild and exits 0
+#   escape   the replay stream, then a grandchild that setsid's, chdir's to /, closes
+#            its descriptors, sleeps 2 s and writes <run tree>/late.txt by absolute path
+#   holdpipe the replay stream, then a setsid grandchild that keeps stdout open 20 s
 # The grandchild is started in a new session (start_new_session=True), as Claude Code's
 # Bash tool does (its shell provider spawns with detached: true, i.e. setsid), so it
 # leaves the worker's process group.
@@ -65,6 +68,23 @@ for e in out:
     print(json.dumps(e))
 if has and "SF-FIXTURE-7" in skill_md.read_text():
     Path("hello.txt").write_text("SF-FIXTURE-7\n")
+if mode == "escape":
+    sys.stdout.flush()
+    code = ("import os, time, sys; os.chdir('/'); time.sleep(2); "
+            "open(sys.argv[1], 'w').write('late')")
+    child = subprocess.Popen([sys.executable, "-c", code, str(Path.cwd() / "late.txt")],
+                             start_new_session=True, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+    for _ in range(200):  # exit only once the child has left the tree
+        try:
+            if os.readlink(f"/proc/{child.pid}/cwd") == "/":
+                break
+        except OSError:
+            pass
+        time.sleep(0.01)
+if mode == "holdpipe":
+    sys.stdout.flush()
+    subprocess.Popen(["sleep", "20"], start_new_session=True)
 if mode == "background":
     sys.stdout.flush()
     subprocess.Popen(["sh", "-c", "sleep 2; echo late > \"$FAKE_MARK\""], start_new_session=True,

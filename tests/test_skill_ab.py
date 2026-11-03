@@ -151,7 +151,7 @@ def test_refuses_when_cli_absent(tmp_path, capsys):
 
 
 FAKE_CLAUDE = r'''#!/usr/bin/env python3
-"""Replays the captured streams: with-arm if the clone has the skill dir."""
+"""Replays the captured streams: with-arm if the run tree has the skill dir."""
 import json, os, sys
 from pathlib import Path
 if sys.argv[1:] == ["--version"]:
@@ -202,7 +202,7 @@ def test_end_to_end_with_fake_cli(tmp_path, monkeypatch, capsys):
     # control: skill loaded and invoked, filler body has no token -> oracle fails
     assert (arms["control"]["passed"], arms["control"]["invoked"]) == (0, 1)
     assert "smoke, not evidence" in out
-    assert not (proj / "hello.txt").exists()   # worker ran in the clone, not the project
+    assert not (proj / "hello.txt").exists()   # worker ran in the run tree, not the project
 
 
 # ---------------------------------------------------------------- skill_usage
