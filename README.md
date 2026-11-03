@@ -13,7 +13,7 @@
 
 Search 300K+ skills across 6 registries. Import from GitHub in one command. Validate against the open spec. Remove cleanly with provenance tracking. Works with Claude Code, Codex, Cursor, Gemini CLI, and every platform that reads `SKILL.md`.
 
-> No runtime. No server. No lock-in. Your agent IS the engine.
+> No server. No lock-in. Your agent IS the engine. (The Claude Code-only measurement features run stdlib Python scripts.)
 
 ---
 
@@ -71,8 +71,8 @@ cp -r skill-factory/skills/* ~/.claude/skills/
 | `/skills-create <name>` | Scaffold a new `SKILL.md` with valid frontmatter and directory structure |
 | `/skills-validate <name>` | Validate against the agentskills.io spec; `--platform claude-code` adds parser-quirk + CC-field checks (spec-valid ≠ platform-valid) |
 | `/skills-audit <name>` | Quality audit — trigger description quality, progressive disclosure, body size |
-| `/skills-health` | Health report across all installed skills — coverage, staleness, spec compliance |
-| `/skills-eval` | Session-end skill performance evaluation — analyzes which skills helped, which didn't, and what was missed |
+| `/skills-health` | Health report across all installed skills — coverage, staleness, spec compliance, never-invoked count (Claude Code) |
+| `/skills-eval` | Session-end skill performance evaluation — analyzes which skills helped, which didn't, and what was missed. `--ab` measures one skill with vs without on a task set (Claude Code) |
 
 ---
 
@@ -168,7 +168,11 @@ skill-factory/
 │   ├── skills-validate.md           # Spec validation
 │   ├── skills-audit.md              # Quality audit
 │   ├── skills-health.md             # Health report
-│   └── skills-eval.md               # Session-end evaluation
+│   └── skills-eval.md               # Session-end evaluation + with/without mode
+├── scripts/
+│   ├── skill_ab.py                  # With/without-skill runner (claude -p)
+│   └── skill_usage.py               # Never-invoked count from transcripts
+├── tests/                           # pytest for scripts/ (python3 -m pytest tests/)
 ├── handbook/
 │   ├── search-tiers.md              # Full search cascade reference
 │   ├── publishing-skills.md         # How to publish to skills.sh
@@ -194,7 +198,7 @@ Deep-dive references for skill authors and power users:
 
 ## Design Decisions
 
-**Agent IS the engine.** skill-factory provides knowledge (skills), entry points (commands), and one analytical agent — your coding agent's native tool-calling handles all execution. No Python runtime, no server dependencies. Portable across platforms.
+**Agent IS the engine.** skill-factory provides knowledge (skills), entry points (commands), and one analytical agent — your coding agent's native tool-calling handles all execution. No server dependencies. Portable across platforms. One exception: the Claude Code-only measurement features (`/skills-eval --ab`, the never-invoked count in `/skills-health`) run stdlib Python 3.8+ scripts in `scripts/`, because counting runs and computing pass rates must be deterministic.
 
 **File-level copyleft (MPL-2.0).** Modified files must stay open-source. Patent grant protects contributors. But you can freely combine skill-factory with proprietary projects in separate files. See [LICENSE](./LICENSE).
 
